@@ -1,67 +1,17 @@
-# LangGraph with Reflection Demo
+# LangGraph with Reflection Node – Revision
 
-This project demonstrates a simple LangGraph workflow that generates an answer to a user‑supplied question, evaluates the answer with a reflection node, and rewrites the answer if necessary. The process repeats until the answer is deemed satisfactory or a maximum number of rounds is reached.
-
-## Features
-
-- **Draft node** – Generates an initial answer using OpenAI.
-- **Reflection node** – Uses an LLM to evaluate the answer and produce a verdict (`ok` or `needs_revision`) along with critique points.
-- **Rewrite node** – Rewrites the answer based on the critique and increments the round counter.
-- **Max rounds logic** – Stops after a configurable number of rounds (default 2) even if the answer still needs revision.
-- **Command‑line interface** – Run the graph from the terminal with a question argument.
-
-## Prerequisites
-
-- Python 3.10+
-- An OpenAI API key. Set it in a `.env` file:
-
-```dotenv
-OPENAI_API_KEY=your-openai-key-here
-```
-
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/your-username/langgraph-reflection-demo.git
-cd langgraph-reflection-demo
-
-# Create a virtual environment (optional but recommended)
-python -m venv .venv
-source .venv/bin/activate   # On Windows use `.venv\\Scripts\\activate`
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-## Usage
-
-```bash
-python main.py "Explain the theory of relativity in simple terms."
-```
-
-Optional arguments:
-
-- `--max_rounds N` – Set the maximum number of rewrite rounds (default is 2).
-
-Example:
-
-```bash
-python main.py "Explain the theory of relativity in simple terms." --max_rounds 3
-```
-
-The script will print the final answer, the verdict, and any critique points.
-
-## Project Structure
-
-```
-├── graph.py          # LangGraph definition
-├── state.py          # Dataclass for graph state
-├── main.py           # CLI entry point
-├── requirements.txt  # Python dependencies
-└── README.md         # Documentation
-```
-
-## License
-
-MIT License
+## Requirements
+- [high] Unify to Graph Paradigm: Remove any chain or try/except logic from the current implementation and refactor the entire workflow to use LangGraph’s graph API only.
+- [high] Define ReflectState: Create a TypedDict named ReflectState with fields: question (str), draft (str), critique (str), verdict (str – "ok" or "needs_revision"), round (int), max_rounds (int, default 2).
+- [high] Implement Nodes: Implement three nodes:
+- draft_answer: generates the initial answer.
+- reflect: uses an LLM to produce a verdict and 2–3 critique points; must not use exception handling.
+- rewrite: updates the draft based on critique and increments round.
+- [high] Configure Graph Flow: Set up the graph so that START → draft_answer → reflect, then:
+- if verdict == "ok" → END;
+- if verdict == "needs_revision" and round < max_rounds → rewrite → reflect;
+- otherwise → END.
+- [high] Enforce max_rounds: Ensure the agent stops after reaching max_rounds even if the verdict is still "needs_revision".
+- [high] CLI Interface: Provide a command‑line interface that accepts a question, runs the graph, and prints the final draft, critique, and verdict.
+- [normal] README and Documentation: Add a README explaining dependencies, how to run the CLI, and a brief description of the graph logic.
+- [low] Testing and Linting: Include basic unit tests for node outputs and graph flow, and ensure code passes flake8/black formatting.
