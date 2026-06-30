@@ -1,6 +1,5 @@
 from typing import TypedDict, Literal
 from langgraph.graph import StateGraph, END, START
-from langchain_openai import ChatOpenAI
 import json
 
 class ReflectState(TypedDict):
@@ -11,7 +10,16 @@ class ReflectState(TypedDict):
     round: int
     max_rounds: int
 
-def create_graph(llm: ChatOpenAI) -> StateGraph:
+def create_graph(llm) -> StateGraph:
+    """
+    Create a LangGraph that performs a reflection loop.
+
+    The graph follows this flow:
+        draft_answer -> critique
+        if verdict == "ok" -> END
+        if verdict == "needs_revision" and round < max_rounds -> rewrite -> critique
+        else -> END
+    """
     graph = StateGraph(ReflectState)
 
     @graph.node
@@ -29,20 +37,10 @@ def create_graph(llm: ChatOpenAI) -> StateGraph:
             "Critique it and decide if it is ok. Return JSON with keys "
             "\"verdict\" (\"ok\" or \"needs_revision\") and \"critique\"."
         )
-        attempts = 0
-        while attempts < state["max_rounds"]:
-            try:
-                result = llm.invoke(prompt)
-                parsed = json.loads(result)
-                state["verdict"] = parsed["verdict"]
-                state["critique"] = parsed["critique"]
-                return state
-            except Exception as e:
-                attempts += 1
-                print(f"Critique attempt {attempts} failed: {e}")
-        # If we exit the loop, set a default verdict
-        state["verdict"] = "needs_revision"
-        state["critique"] = f"Failed to generate critique after {attempts} attempts."
+        result = llm.invoke(prompt)
+        parsed = json.loads(result)
+        state["verdict"] = parsed["verdict"]
+        state["critique"] = parsed["critique"]
         return state
 
     @graph.node
@@ -64,7 +62,9 @@ def create_graph(llm: ChatOpenAI) -> StateGraph:
     graph.add_edge("draft_answer", "critique")
     graph.add_edge("rewrite", "critique")
 
-    def critique_condition(state: ReflectState) -> Literal["ok", "needs_revision_and_rounds_left", "needs_revision_and_no_rounds_left"]:
+    def critique_condition(state: ReflectState) -> Literal[
+        "ok", "needs_revision_and_rounds_left", "needs_revision_and_no_rounds_left"
+    ]:
         if state["verdict"] == "ok":
             return "ok"
         elif state["verdict"] == "needs_revision" and state["round"] < state["max_rounds"]:
