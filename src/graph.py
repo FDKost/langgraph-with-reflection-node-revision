@@ -1,4 +1,4 @@
-from typing import TypedDict, Literal, Dict, Any
+from typing import TypedDict, Literal
 from langgraph.graph import StateGraph, END, START
 from langchain_openai import ChatOpenAI
 import json
@@ -12,9 +12,6 @@ class ReflectState(TypedDict):
     max_rounds: int
 
 def create_graph(llm: ChatOpenAI) -> StateGraph:
-    """
-    Create a LangGraph that implements the reflection loop.
-    """
     graph = StateGraph(ReflectState)
 
     @graph.node
@@ -25,17 +22,27 @@ def create_graph(llm: ChatOpenAI) -> StateGraph:
         return state
 
     @graph.node
-    def reflect(state: ReflectState) -> ReflectState:
+    def critique(state: ReflectState) -> ReflectState:
         prompt = (
             f"Given the draft answer: {state['draft']}\n"
             f"Round: {state['round']}\n"
             "Critique it and decide if it is ok. Return JSON with keys "
             "\"verdict\" (\"ok\" or \"needs_revision\") and \"critique\"."
         )
-        result = llm.invoke(prompt)
-        parsed = json.loads(result)
-        state["verdict"] = parsed["verdict"]
-        state["critique"] = parsed["critique"]
+        attempts = 0
+        while attempts < state["max_rounds"]:
+            try:
+                result = llm.invoke(prompt)
+                parsed = json.loads(result)
+                state["verdict"] = parsed["verdict"]
+                state["critique"] = parsed["critique"]
+                return state
+            except Exception as e:
+                attempts += 1
+                print(f"Critique attempt {attempts} failed: {e}")
+        # If we exit the loop, set a default verdict
+        state["verdict"] = "needs_revision"
+        state["critique"] = f"Failed to generate critique after {attempts} attempts."
         return state
 
     @graph.node
@@ -50,14 +57,14 @@ def create_graph(llm: ChatOpenAI) -> StateGraph:
         return state
 
     graph.add_node("draft_answer", draft_answer)
-    graph.add_node("reflect", reflect)
+    graph.add_node("critique", critique)
     graph.add_node("rewrite", rewrite)
 
     graph.add_edge(START, "draft_answer")
-    graph.add_edge("draft_answer", "reflect")
-    graph.add_edge("rewrite", "reflect")
+    graph.add_edge("draft_answer", "critique")
+    graph.add_edge("rewrite", "critique")
 
-    def reflect_condition(state: ReflectState) -> Literal["ok", "needs_revision_and_rounds_left", "needs_revision_and_no_rounds_left"]:
+    def critique_condition(state: ReflectState) -> Literal["ok", "needs_revision_and_rounds_left", "needs_revision_and_no_rounds_left"]:
         if state["verdict"] == "ok":
             return "ok"
         elif state["verdict"] == "needs_revision" and state["round"] < state["max_rounds"]:
@@ -66,8 +73,8 @@ def create_graph(llm: ChatOpenAI) -> StateGraph:
             return "needs_revision_and_no_rounds_left"
 
     graph.add_conditional_edges(
-        "reflect",
-        reflect_condition,
+        "critique",
+        critique_condition,
         {
             "ok": END,
             "needs_revision_and_rounds_left": "rewrite",

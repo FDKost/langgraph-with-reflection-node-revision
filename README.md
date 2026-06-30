@@ -1,4 +1,4 @@
-# LangGraph with Reflection Node – Revision
+# LangGraph with Reflection Loop – Revision
 
 ## Overview
 
@@ -9,6 +9,8 @@ The agent:
 2. Uses an LLM to critique the answer and decide whether it is acceptable.
 3. If the answer is not acceptable and the maximum number of rounds has not been reached, the agent rewrites the answer based on the critique.
 4. The loop repeats until the answer is deemed acceptable or the maximum number of rounds is exceeded.
+
+The loop is implemented using a `StateGraph` that manages the state of the conversation.
 
 ## Requirements
 
@@ -26,7 +28,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python -m src.cli "What is the capital of France?"
+python main.py "Explain to a student the difference between tool and resource in MCP" --max-rounds 2
 ```
 
 Optional arguments:
@@ -40,10 +42,10 @@ The script prints the final draft, critique, and verdict.
 ## Graph Logic
 
 ```
-START → draft_answer → reflect
+START → draft_answer → critique
           │
           ├─ if verdict == "ok" → END
-          └─ if verdict == "needs_revision" and round < max_rounds → rewrite → reflect
+          └─ if verdict == "needs_revision" and round < max_rounds → rewrite → critique
           └─ otherwise → END
 ```
 
