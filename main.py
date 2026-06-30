@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+"""
+LangGraph Reflection Agent CLI
+
+This script provides a command-line interface to run the reflection graph
+defined in `src/graph.py`. It accepts a question, runs the graph, and
+prints the final draft, critique, and verdict.
+"""
+
 import argparse
 from langchain_openai import ChatOpenAI
 from src.graph import create_graph

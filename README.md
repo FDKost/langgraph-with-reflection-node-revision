@@ -1,17 +1,65 @@
 # LangGraph with Reflection Node – Revision
 
+## Overview
+
+This project demonstrates a simple **reflection loop** built with LangGraph and LangChain.  
+The agent:
+
+1. Generates an initial answer to a user‑supplied question.
+2. Uses an LLM to critique the answer and decide whether it is acceptable.
+3. If the answer is not acceptable and the maximum number of rounds has not been reached, the agent rewrites the answer based on the critique.
+4. The loop repeats until the answer is deemed acceptable or the maximum number of rounds is exceeded.
+
 ## Requirements
-- [high] Unify to Graph Paradigm: Remove any chain or try/except logic from the current implementation and refactor the entire workflow to use LangGraph’s graph API only.
-- [high] Define ReflectState: Create a TypedDict named ReflectState with fields: question (str), draft (str), critique (str), verdict (str – "ok" or "needs_revision"), round (int), max_rounds (int, default 2).
-- [high] Implement Nodes: Implement three nodes:
-- draft_answer: generates the initial answer.
-- reflect: uses an LLM to produce a verdict and 2–3 critique points; must not use exception handling.
-- rewrite: updates the draft based on critique and increments round.
-- [high] Configure Graph Flow: Set up the graph so that START → draft_answer → reflect, then:
-- if verdict == "ok" → END;
-- if verdict == "needs_revision" and round < max_rounds → rewrite → reflect;
-- otherwise → END.
-- [high] Enforce max_rounds: Ensure the agent stops after reaching max_rounds even if the verdict is still "needs_revision".
-- [high] CLI Interface: Provide a command‑line interface that accepts a question, runs the graph, and prints the final draft, critique, and verdict.
-- [normal] README and Documentation: Add a README explaining dependencies, how to run the CLI, and a brief description of the graph logic.
-- [low] Testing and Linting: Include basic unit tests for node outputs and graph flow, and ensure code passes flake8/black formatting.
+
+- Python 3.10+
+- `langchain-openai`
+- `langgraph`
+- `openai` (for the LLM)
+
+Install the dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+```bash
+python -m src.cli "What is the capital of France?"
+```
+
+Optional arguments:
+
+- `--max-rounds`: Maximum number of revision rounds (default: 2)
+- `--model`: OpenAI model to use (default: `gpt-3.5-turbo`)
+- `--temperature`: Temperature for the LLM (default: 0.7)
+
+The script prints the final draft, critique, and verdict.
+
+## Graph Logic
+
+```
+START → draft_answer → reflect
+          │
+          ├─ if verdict == "ok" → END
+          └─ if verdict == "needs_revision" and round < max_rounds → rewrite → reflect
+          └─ otherwise → END
+```
+
+The graph is implemented in `src/graph.py` using LangGraph’s `StateGraph`.  
+The `ReflectState` TypedDict defines the state shape.
+
+## Testing
+
+Run the unit tests with:
+
+```bash
+pytest
+```
+
+The tests cover node outputs and the overall graph flow.
+
+## License
+
+MIT
